@@ -1,20 +1,21 @@
-// index.js
 const path = require("path");
 const express = require("express");
 const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
+require('dotenv').config();  // Load environment variables
 
 const Blog = require("./models/blog");
+const User = require("./models/user");
 
 const userRoute = require('./routes/user');
 const blogRoute = require('./routes/blog');
-const { checkforAuthenicationCookie } = require("./middlewares/auth");
+const { checkForAuthenticationCookie } = require("./middlewares/authentication");
 
 const app = express();
-const PORT = 8000;
+const PORT = process.env.PORT || 8000;
 
 // Connect to MongoDB
-mongoose.connect("mongodb://localhost:27017/blogiFy", { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/blogiFy", { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => console.log("MongoDB Connected"))
     .catch(err => console.error("MongoDB Connection Error:", err));
 
@@ -31,14 +32,26 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Authentication middleware
-app.use(checkforAuthenicationCookie("token"));
+app.use(checkForAuthenticationCookie("token"));
+
+// Populate res.locals.user
+app.use((req, res, next) => {
+  if (req.user) {
+    res.locals.user = {
+      fullName: req.user.fullName,
+      profileImageURL: req.user.profileImageURL
+    };
+  } else {
+    res.locals.user = null;
+  }
+  next();
+});
 
 // Routes
 app.get("/", async (req, res) => {
     try {
         const allBlogs = await Blog.find({});
         res.render("home", {
-            user: req.user,  // This will be passed from the middleware
             blogs: allBlogs,
         });
     } catch (err) {
@@ -52,5 +65,5 @@ app.use('/blog', blogRoute);
 
 // Start server
 app.listen(PORT, () => {
-    console.log(`Server started at ${PORT}`);
+    console.log(`Server started at PORT:${PORT}`);
 });
